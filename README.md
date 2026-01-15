@@ -24,12 +24,26 @@ cd robot_service_api_server
 
 **Linux / macOS:**
 ```bash
-./setup.sh
+# 仮想環境の作成
+python3 -m venv venv
+
+# 仮想環境の有効化
+source venv/bin/activate
+
+# 依存パッケージのインストール
+pip install -r requirements.txt
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\setup.ps1
+# 仮想環境の作成
+python -m venv venv
+
+# 仮想環境の有効化
+.\venv\Scripts\Activate.ps1
+
+# 依存パッケージのインストール
+pip install -r requirements.txt
 ```
 
 ### 3. Configure / 設定
