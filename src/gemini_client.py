@@ -5,6 +5,7 @@ warnings.filterwarnings("ignore", message=".*All support for the `google.generat
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+from prompt import build_chat_prompt
 
 load_dotenv()
 
@@ -20,17 +21,9 @@ def generate_chat_response(message: str, context: str = ""):
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
         
-        prompt = f"""
-You are a helpful station guide robot.
-Use the following context information (shops, facilities) to answer the user's question if relevant.
-If the context doesn't have the answer, answer naturally as a helpful assistant.
-
-Context Information:
-{context}
-
-User Question: {message}
-"""
+        prompt = build_chat_prompt(message, context)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         return f"Error communicating with Gemini: {str(e)}"
+
