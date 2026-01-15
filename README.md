@@ -7,7 +7,7 @@
 ## 📋 Requirements / 必要環境
 
 - Python 3.10+
-- [Robot Service Database](https://github.com/YOUR_USERNAME/robot_service_data_base) (別途起動が必要)
+- [Robot Service Database](https://github.com/yutorimatsugami/robot_service_data_base) (別途起動が必要)
 
 ---
 
@@ -16,7 +16,7 @@
 ### 1. Clone & Setup / クローンとセットアップ
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/robot_service_api_server.git
+git clone https://github.com/yutorimatsugami/robot_service_api_server.git
 cd robot_service_api_server
 ```
 
