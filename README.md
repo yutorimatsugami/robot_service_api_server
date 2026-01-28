@@ -1,12 +1,14 @@
 # Robot Service API Server
 
 案内ロボットサービス用のAPIサーバーです。FastAPIで構築され、Gemini APIと連携します。
+**HTTPS対応 (自己署名証明書)** により、Web Audio API (スマホマイク) からの音声送信をサポートしています。
 
 ---
 
 ## 📋 Requirements / 必要環境
 
 - Python 3.10+
+- OpenSSL (証明書作成用)
 - [Robot Service Database](https://github.com/yutorimatsugami/robot_service_data_base) (別途起動が必要)
 
 ---
@@ -34,19 +36,46 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Windows (PowerShell):**
-```powershell
-# 仮想環境の作成
-python -m venv venv
+### 3. Generate SSL Certificates / 証明書の作成 (必須)
 
-# 仮想環境の有効化
-.\venv\Scripts\Activate.ps1
+スマホのマイク機能(Web Audio API)を使用するため、HTTPS化が必須です。
+サーバーのIPアドレスを含んだ自己署名証明書を作成します。
 
-# 依存パッケージのインストール
-pip install -r requirements.txt
+1. IPアドレスを確認 (例: `192.168.11.7` とする)
+2. `src/` ディレクトリに移動
+3. 設定ファイル `san.cnf` を作成 (IPアドレスを自分の環境に合わせて書き換えること)
+
+```ini
+[req]
+default_bits  = 2048
+distinguished_name = req_distinguished_name
+req_extensions = req_ext
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = 192.168.11.7
+
+[req_ext]
+subjectAltName = @alt_names
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+IP.1 = 192.168.11.7
+IP.2 = 127.0.0.1
+DNS.1 = localhost
 ```
 
-### 3. Configure / 設定
+4. 証明書を生成
+
+```bash
+# srcディレクトリ内で実行
+openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -config san.cnf
+```
+
+### 4. Configure / 設定
 
 `.env` ファイルを編集し、必要な情報を入力:
 ```ini
@@ -54,55 +83,28 @@ DATABASE_URL=postgresql://robot_user:robot_pass@localhost:5432/robot_service_db
 GEMINI_API_KEY=your_api_key_here
 ```
 
-### 4. Run / 起動
+### 5. Run (HTTPS) / 起動
 
-**Linux / macOS:**
+証明書ファイルを指定して起動します。
+IPアドレスが変わった場合は証明書を作り直す必要があります。
+
 ```bash
-./run.sh
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run.ps1
-```
-
-**または手動で:**
-```bash
-source venv/bin/activate  # Linux/macOS
-# .\venv\Scripts\Activate.ps1  # Windows
 cd src
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile key.pem --ssl-certfile cert.pem
 ```
 
-### 5. Access / アクセス
-
-| URL | 説明 |
-|-----|------|
-| http://localhost:8000 | API Root |
-| http://localhost:8000/docs | Swagger UI (API ドキュメント) |
-| http://localhost:8000/redoc | ReDoc |
+※ `run.sh` / `run.ps1` はHTTP用設定のままの場合がありますので、上記の手動コマンド推奨。
 
 ---
 
-## 📁 Project Structure / プロジェクト構成
+## ⚠️ Browser Security Warning / ブラウザでのセキュリティ警告
 
-```
-robot_service_api_server/
-├── requirements.txt      # Python依存関係
-├── .env.example          # 環境変数テンプレート
-├── .env                  # 環境変数 (Git管理外)
-├── .gitignore
-├── README.md
-├── setup.sh / setup.ps1  # セットアップスクリプト
-├── run.sh / run.ps1      # 起動スクリプト
-└── src/
-    ├── main.py           # FastAPIアプリ
-    ├── database.py       # DB接続
-    ├── models.py         # SQLAlchemyモデル
-    ├── schemas.py        # Pydanticスキーマ
-    ├── crud.py           # DB操作
-    └── gemini_client.py  # Gemini API連携
-```
+自己署名証明書を使用しているため、ブラウザでアクセスすると「安全ではありません」という警告が出ます。
+WebアプリからAPIを利用するためには、**事前に一度ブラウザでアクセスして例外許可を与える**必要があります。
+
+1. スマホ/PCのブラウザで `https://[サーバーIP]:8000/docs` にアクセス。
+2. 警告画面で「詳細設定」→「[サーバーIP]に進む（安全ではありません）」を選択。
+3. Swagger UIが表示されればOK。これでAPIが呼び出せるようになります。
 
 ---
 
@@ -112,35 +114,23 @@ robot_service_api_server/
 |--------|----------|------|
 | GET | `/` | ヘルスチェック |
 | GET | `/ads` | 広告一覧取得 |
-| POST | `/chat` | AI チャット (Gemini連携) |
+| POST | `/chat` | テキストチャット (Gemini連携) |
+| POST | `/voice_chat` | **音声チャット** (音声ファイル受信→文字起こし→回答) |
 
-### POST /chat
+### POST /voice_chat
+Web Audio API等で録音した `wav` ファイルをアップロードします。
+
 ```bash
-curl -X POST "http://localhost:8000/chat" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "おすすめのお店を教えて"}'
+curl -X POST "https://localhost:8000/voice_chat" \
+  -F "audio=@recording.wav" \
+  --insecure
 ```
 
 ---
 
 ## ⚙️ Configuration / 設定
 
-| 環境変数 | 説明 | 例 |
-|---------|------|-----|
-| `DATABASE_URL` | DB接続URL | `postgresql://user:pass@host:5432/db` |
-| `GEMINI_API_KEY` | Gemini APIキー | `AIza...` |
-| `HOST` | サーバーホスト | `0.0.0.0` |
-| `PORT` | サーバーポート | `8000` |
-
----
-
-## 🤝 Contributing / 貢献
-
-1. Fork this repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+CORS設定は `main.py` 内で、サーバー自身のIPアドレスを自動取得して `https://[IP]:1880` (Node-RED) からのアクセスを許可するように動的に構成されています。
 
 ---
 
