@@ -36,6 +36,26 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Windows (PowerShell):**
+```powershell
+# 仮想環境の作成
+python -m venv venv
+
+# 仮想環境の有効化
+.\venv\Scripts\Activate.ps1
+
+# 依存パッケージのインストール
+pip install -r requirements.txt
+```
+
+> [!TIP]
+> `setup.sh` / `setup.ps1` を使えば上記の手順を自動で実行できます。
+>
+> ```bash
+> ./setup.sh      # Linux/macOS
+> .\setup.ps1    # Windows
+> ```
+
 ### 3. Generate SSL Certificates / 証明書の作成 (必須)
 
 スマホのマイク機能(Web Audio API)を使用するため、HTTPS化が必須です。
@@ -88,12 +108,17 @@ GEMINI_API_KEY=your_api_key_here
 証明書ファイルを指定して起動します。
 IPアドレスが変わった場合は証明書を作り直す必要があります。
 
+**スクリプトで起動（推奨）:**
+```bash
+./run.sh      # Linux/macOS
+.\run.ps1    # Windows
+```
+
+**または手動で:**
 ```bash
 cd src
 uvicorn main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile key.pem --ssl-certfile cert.pem
 ```
-
-※ `run.sh` / `run.ps1` はHTTP用設定のままの場合がありますので、上記の手動コマンド推奨。
 
 ---
 
@@ -134,6 +159,46 @@ CORS設定は `main.py` 内で、サーバー自身のIPアドレスを自動取
 
 ---
 
-## 📝 License
+## � Project Structure / プロジェクト構成
+
+```
+robot_service_api_server/
+├── requirements.txt      # Python依存関係
+├── .env.example          # 環境変数テンプレート
+├── .env                  # 環境変数 (Git管理外)
+├── .gitignore            # Git管理外ファイル設定
+├── README.md
+├── setup.sh / setup.ps1  # セットアップスクリプト
+├── run.sh / run.ps1      # 起動スクリプト (HTTPS対応)
+└── src/
+    ├── main.py           # FastAPIアプリ
+    ├── database.py       # DB接続
+    ├── models.py         # SQLAlchemyモデル
+    ├── schemas.py        # Pydanticスキーマ
+    ├── crud.py           # DB操作
+    ├── gemini_client.py  # Gemini API連携
+    ├── prompt.py         # プロンプトテンプレート管理
+    ├── san.cnf           # SSL証明書設定 (IP変更時に編集)
+    ├── cert.pem          # SSL証明書 (Git管理外)
+    └── key.pem           # SSL秘密鍵 (Git管理外)
+```
+
+---
+
+## 🚫 .gitignore / Git管理外ファイル
+
+以下のファイルはセキュリティ上の理由でGit管理外です:
+
+| ファイル | 理由 |
+|---------|------|
+| `.env` | APIキーなどの機密情報を含む |
+| `*.pem` | SSL証明書・秘密鍵 |
+| `venv/` | Python仮想環境 |
+| `__pycache__/` | Pythonキャッシュ |
+
+---
+
+## �📝 License
 
 MIT License
+

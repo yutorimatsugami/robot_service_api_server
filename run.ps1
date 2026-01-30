@@ -17,4 +17,4 @@ if (Test-Path ".env") {
 Set-Location src
 $host_addr = if ($env:HOST) { $env:HOST } else { "0.0.0.0" }
 $port = if ($env:PORT) { $env:PORT } else { "8000" }
-uvicorn main:app --reload --host $host_addr --port $port
+uvicorn main:app --reload --host $host_addr --port $port --ssl-keyfile key.pem --ssl-certfile cert.pem
