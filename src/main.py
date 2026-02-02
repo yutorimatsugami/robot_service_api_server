@@ -66,6 +66,16 @@ def read_ads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     ads = crud.get_ads(db, skip=skip, limit=limit)
     return ads
 
+@app.get("/timetable/{station_name}", response_model=List[schemas.TimetableBase])
+def read_timetable(station_name: str, time: str = None, db: Session = Depends(get_db)):
+    if time is None:
+        from datetime import datetime
+        now = datetime.now()
+        time = now.strftime("%H:%M")
+    
+    timetable = crud.get_timetable(db, station_name=station_name, time=time)
+    return timetable
+
 @app.post("/chat", response_model=schemas.ChatResponse)
 def chat_with_robot(request: schemas.ChatRequest, db: Session = Depends(get_db)):
     user_msg = request.message

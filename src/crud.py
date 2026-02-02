@@ -35,3 +35,13 @@ def get_all_ads_text(db: Session) -> str:
         part = f"Name: {ad.shop_name}, Category: {ad.category}, Info: {ad.description}, Hours: {ad.business_hours}"
         text_parts.append(part)
     return "\n".join(text_parts)
+
+def get_timetable(db: Session, station_name: str, time: str = None, limit: int = 10):
+    query = db.query(models.TrainTimetable).filter(
+        models.TrainTimetable.station_name == station_name
+    )
+    if time:
+        # 指定時刻以降のデータを取得
+        query = query.filter(models.TrainTimetable.osaka_departure_time >= time)
+    
+    return query.order_by(models.TrainTimetable.osaka_departure_time).limit(limit).all()

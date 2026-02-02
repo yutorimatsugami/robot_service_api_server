@@ -35,3 +35,15 @@ class FaqResponse(Base):
     trigger_keywords = Column(Text)
     response_text = Column(Text, nullable=False)
     category = Column(String(50))
+
+class TrainTimetable(Base):
+    __tablename__ = 'train_timetable'
+    id = Column(Integer, primary_key=True, index=True)
+    station_name = Column(String, index=True)
+    osaka_departure_time = Column(String)  # "HH:MM"
+    osaka_platform = Column(String)
+    train_type = Column(String)
+    destination = Column(String)
+    direction = Column(String)
+    arrival_status = Column(String)
+
