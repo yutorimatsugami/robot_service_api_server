@@ -69,6 +69,7 @@ def read_ads(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 @app.post("/chat", response_model=schemas.ChatResponse)
 def chat_with_robot(request: schemas.ChatRequest, db: Session = Depends(get_db)):
     user_msg = request.message
+    lang = request.lang
     
     # 1. Check FAQ (Simple Keyword Match)
     faq = crud.get_faq_response(db, user_msg)
@@ -78,11 +79,10 @@ def chat_with_robot(request: schemas.ChatRequest, db: Session = Depends(get_db))
     # 2. RAG with Gemini
     # Retrieve relevant context (For simplicity, we dump all ads info or search)
     # Ideally, use vector search. Here we do simple keyword search or just dump all if small.
-    # Let's search ads that might be relevant to the message keywords?
     # Or just provide all ad info as context because the dataset is small.
     context_text = crud.get_all_ads_text(db)
     
-    ai_response = gemini_client.generate_chat_response(user_msg, context=context_text)
+    ai_response = gemini_client.generate_chat_response(user_msg, context=context_text, lang=lang)
     
     return schemas.ChatResponse(response=ai_response)
 
@@ -90,6 +90,7 @@ def chat_with_robot(request: schemas.ChatRequest, db: Session = Depends(get_db))
 @app.post("/voice_chat", response_model=schemas.ChatResponse)
 async def voice_chat_with_robot(
     audio: UploadFile = File(...),
+    lang: str = "ja",
     db: Session = Depends(get_db)
 ):
     """音声ファイルを受け取り、音声認識してチャット応答を返す"""
@@ -104,7 +105,7 @@ async def voice_chat_with_robot(
     
     try:
         # 1. 音声をテキストに変換
-        transcribed_text = gemini_client.voice_to_text(tmp_path)
+        transcribed_text = gemini_client.voice_to_text(tmp_path, lang=lang)
         
         if transcribed_text.startswith("Error"):
             return schemas.ChatResponse(response=transcribed_text)
@@ -116,7 +117,7 @@ async def voice_chat_with_robot(
         
         # 3. Gemini RAG
         context_text = crud.get_all_ads_text(db)
-        ai_response = gemini_client.generate_chat_response(transcribed_text, context=context_text)
+        ai_response = gemini_client.generate_chat_response(transcribed_text, context=context_text, lang=lang)
         
         return schemas.ChatResponse(response=ai_response)
     finally:

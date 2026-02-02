@@ -20,6 +20,7 @@ class AdContent(AdContentBase):
 class ChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = "guest"
+    lang: str = "ja"  # "ja" or "en"
 
 class ChatResponse(BaseModel):
     response: str
