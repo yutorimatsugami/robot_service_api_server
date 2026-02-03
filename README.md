@@ -139,8 +139,25 @@ WebアプリからAPIを利用するためには、**事前に一度ブラウザ
 |--------|----------|------|
 | GET | `/` | ヘルスチェック |
 | GET | `/ads` | 広告一覧取得 |
+| GET | `/timetable/{station_name}` | **時刻表検索** (駅名指定、時刻フィルタ可) |
 | POST | `/chat` | テキストチャット (Gemini連携) |
 | POST | `/voice_chat` | **音声チャット** (音声ファイル受信→文字起こし→回答) |
+
+### GET /timetable/{station_name}
+指定した駅への時刻表を取得します。
+
+| パラメータ | 説明 | デフォルト |
+|-----------|------|-----------|
+| `station_name` (path) | 行先駅名 (例: 京都) | 必須 |
+| `time` (query) | 検索開始時刻 (HH:MM) | 現在時刻 |
+
+```bash
+# 京都方面の時刻表（現在時刻以降）
+curl "https://localhost:8000/timetable/京都" --insecure
+
+# 10:00以降の時刻表を取得
+curl "https://localhost:8000/timetable/京都?time=10:00" --insecure
+```
 
 ### POST /voice_chat
 Web Audio API等で録音した `wav` ファイルをアップロードします。
