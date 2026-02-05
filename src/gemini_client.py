@@ -9,6 +9,7 @@ from prompt import build_chat_prompt
 from sqlalchemy.orm import Session
 import crud
 import json
+import re
 
 load_dotenv()
 
@@ -30,6 +31,21 @@ def get_timetable_info(station_name: str):
 
 # generate_chat_responseの中で tools=[get_timetable_info] として使用する
 # timetable_tool 辞書変数は不要になったため削除
+
+def clean_text_for_speech(text: str) -> str:
+    """音声読み上げ用にテキストをクリーニングする（Markdown記号の削除）"""
+    if not text:
+        return ""
+    
+    # Remove markdown bold/italic (** or *)
+    text = re.sub(r'\*\*|__', '', text)
+    # Remove list bullets (* or - at start of line)
+    text = re.sub(r'(?m)^[\s]*[\*\-]\s+', '', text)
+    # Remove markdown headers (#)
+    text = re.sub(r'(?m)^#+\s*', '', text)
+    
+    return text.strip()
+
 
 
 def generate_chat_response(message: str, db: Session = None, context: str = "", lang: str = "ja"):
@@ -62,6 +78,7 @@ Response Rules:
   2. Platform Number (乗り場)
   3. Destination
 - Keep responses concise and natural for speech.
+- Do not use markdown formatting like asterisks (**) or bullet points. Use simple sentences.
 - Respond in { "Japanese" if lang == "ja" else "English" }.
 """
         
@@ -122,10 +139,11 @@ User Question: {message}
                         # ツール結果を含んだ新しいプロンプトで再生成
                         final_prompt = full_prompt + function_context
                         final_response = model.generate_content(final_prompt)
-                        return final_response.text
+                        return clean_text_for_speech(final_response.text)
 
         # Function Callがなければそのまま返す
-        return response.text
+        # Function Callがなければそのまま返す
+        return clean_text_for_speech(response.text)
 
     except Exception as e:
         error_msg = str(e)
