@@ -81,18 +81,24 @@ def chat_with_robot(request: schemas.ChatRequest, db: Session = Depends(get_db))
     user_msg = request.message
     lang = request.lang
     
-    # 1. Check FAQ (Simple Keyword Match)
-    faq = crud.get_faq_response(db, user_msg)
+    # 1. FAQ Search
+    # Skip FAQ if the user asks about time/schedule, so Gemini can use the turntable tool.
+    skip_faq_keywords = ["時間", "何時", "時刻表", "ダイヤ", "出発", "到着", "行き方", "ホーム"]
+    should_skip_faq = any(k in user_msg for k in skip_faq_keywords)
+    
+    faq = None
+    if not should_skip_faq:
+        faq = crud.get_faq_response(db, user_msg)
+        
     if faq:
         return schemas.ChatResponse(response=faq.response_text)
     
     # 2. RAG with Gemini
     # Retrieve relevant context (For simplicity, we dump all ads info or search)
-    # Ideally, use vector search. Here we do simple keyword search or just dump all if small.
     # Or just provide all ad info as context because the dataset is small.
     context_text = crud.get_all_ads_text(db)
     
-    ai_response = gemini_client.generate_chat_response(user_msg, context=context_text, lang=lang)
+    ai_response = gemini_client.generate_chat_response(user_msg, db=db, context=context_text, lang=lang)
     
     return schemas.ChatResponse(response=ai_response)
 
@@ -127,7 +133,7 @@ async def voice_chat_with_robot(
         
         # 3. Gemini RAG
         context_text = crud.get_all_ads_text(db)
-        ai_response = gemini_client.generate_chat_response(transcribed_text, context=context_text, lang=lang)
+        ai_response = gemini_client.generate_chat_response(transcribed_text, db=db, context=context_text, lang=lang)
         
         return schemas.ChatResponse(response=ai_response)
     finally:
