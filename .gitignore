@@ -25,3 +25,6 @@ build/
 .DS_Store
 Thumbs.db
 *.pem
+
+# Certificate config (contains environment-specific IP)
+san.cnf

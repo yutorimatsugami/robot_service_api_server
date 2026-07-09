@@ -99,7 +99,7 @@ openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pe
 ```
 
 > [!CAUTION]
-> `san.cnf` には環境固有のIPアドレスが直接記述されます。`.gitignore` には現状含まれておらず誤ってコミットされる可能性があるため、リポジトリにはコミットしないよう注意してください。
+> `san.cnf` には環境固有のIPアドレスが直接記述されるため、リポジトリにはコミットしないでください (`.gitignore` で除外済み)。
 
 ### 4. Configure / 設定
 
