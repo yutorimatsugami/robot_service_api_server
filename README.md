@@ -11,6 +11,9 @@
 - OpenSSL (証明書作成用)
 - [Robot Service Database](https://github.com/yutorimatsugami/robot_service_data_base) (別途起動が必要)
 
+> [!WARNING]
+> `google-generativeai` パッケージ (requirements.txt) は Google により非推奨(EOL)となっています。本プロジェクトでは現時点でも使用しており、コード側で該当の非推奨警告を抑制しています (src/main.py, src/gemini_client.py)。使用モデルは `gemini-2.5-flash`。将来的に後継の `google-genai` パッケージへの移行が必要です。
+
 ---
 
 ## 🚀 Quick Start / クイックスタート
@@ -95,13 +98,19 @@ DNS.1 = localhost
 openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -config san.cnf
 ```
 
+> [!CAUTION]
+> `san.cnf` には環境固有のIPアドレスが直接記述されます。`.gitignore` には現状含まれておらず誤ってコミットされる可能性があるため、リポジトリにはコミットしないよう注意してください。
+
 ### 4. Configure / 設定
 
-`.env` ファイルを編集し、必要な情報を入力:
+`.env` ファイルを編集し、必要な情報を入力 (詳細は `.env.example` を参照):
 ```ini
 DATABASE_URL=postgresql://robot_user:robot_pass@localhost:5432/robot_service_db
 GEMINI_API_KEY=your_api_key_here
+HOST=0.0.0.0
+PORT=8000
 ```
+> `HOST` / `PORT` は `run.sh` / `run.ps1` がサーバー起動時のバインド先として参照します (未設定時は `0.0.0.0:8000` がデフォルト)。
 
 ### 5. Run (HTTPS) / 起動
 
@@ -143,6 +152,29 @@ WebアプリからAPIを利用するためには、**事前に一度ブラウザ
 | POST | `/chat` | テキストチャット (Gemini連携) |
 | POST | `/voice_chat` | **音声チャット** (音声ファイル受信→文字起こし→回答) |
 
+### /chat・/voice_chat の応答フロー
+
+`/chat` および `/voice_chat` は、以下の2段階のパイプラインで応答テキストを生成します:
+
+- **1. FAQキーワード検索**: DB内のFAQ (`trigger_keywords`) とユーザー発話をキーワード一致で照合し、該当するFAQがあればその回答をそのまま返します (単純な部分一致であり、厳密な完全一致ではありません、src/crud.py の `get_faq_response`)。ただし「時間」「何時」「時刻表」等の時刻表関連キーワードを含む場合はFAQ検索自体をスキップします。
+- **2. Geminiフォールバック**: FAQに該当しない場合、Gemini (`gemini-2.5-flash`) にFunction Calling付きで問い合わせます。時刻表に関する質問はGeminiが `get_timetable_info` ツールを呼び出し、内部で時刻表DBを検索した結果を踏まえて回答を生成します (src/main.py:84-101, src/gemini_client.py)。
+
+### POST /chat
+テキストメッセージを送信し、チャット応答を取得します (リクエストボディは `src/schemas.py` の `ChatRequest`)。
+
+| パラメータ (body) | 説明 | デフォルト |
+|-----------|------|-----------|
+| `message` (str) | ユーザーの発話テキスト | 必須 |
+| `user_id` (str, 任意) | ユーザー識別子 | `"guest"` |
+| `lang` (str, 任意) | 応答言語 (`"ja"` または `"en"`) | `"ja"` |
+
+```bash
+curl -X POST "https://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "京都行きは何時ですか", "user_id": "guest", "lang": "ja"}' \
+  --insecure
+```
+
 ### GET /timetable/{station_name}
 指定した駅への時刻表を取得します。
 
@@ -162,8 +194,13 @@ curl "https://localhost:8000/timetable/京都?time=10:00" --insecure
 ### POST /voice_chat
 Web Audio API等で録音した `wav` ファイルをアップロードします。
 
+| パラメータ | 説明 | デフォルト |
+|-----------|------|-----------|
+| `audio` (form, file) | 録音した音声ファイル (wav) | 必須 |
+| `lang` (query) | 文字起こし・応答言語 (`"ja"` または `"en"`) | `"ja"` |
+
 ```bash
-curl -X POST "https://localhost:8000/voice_chat" \
+curl -X POST "https://localhost:8000/voice_chat?lang=ja" \
   -F "audio=@recording.wav" \
   --insecure
 ```
@@ -172,11 +209,16 @@ curl -X POST "https://localhost:8000/voice_chat" \
 
 ## ⚙️ Configuration / 設定
 
-CORS設定は `main.py` 内で、サーバー自身のIPアドレスを自動取得して `https://[IP]:1880` (Node-RED) からのアクセスを許可するように動的に構成されています。
+CORS設定は `src/main.py` 内で、サーバー自身のIPアドレスを自動取得して `https://[IP]:1880` (Node-RED) を許可リストに含めるよう動的に構成されています。
+
+> [!CAUTION]
+> ただし現状の `origins` リストには開発用として `"*"` (全オリジン許可) も含まれており、かつ `allow_credentials=True` と併用されているため、**実際には全てのオリジンからのアクセスが許可されてしまっています** (src/main.py:36-42)。本番運用前には `src/main.py` の `origins` から `"*"` を削除し、Node-RED (`https://<IP>:1880`) など必要なオリジンのみに制限してください。
+
+なお、本APIは兄弟プロジェクト [`nodered_json_with_python`](../nodered_json_with_python) のNode-RED UIから利用されており、そのフローが `https://<このサーバーのIP>:8000/chat` および `/voice_chat` を呼び出します。
 
 ---
 
-## � Project Structure / プロジェクト構成
+## 📁 Project Structure / プロジェクト構成
 
 ```
 robot_service_api_server/
@@ -215,7 +257,7 @@ robot_service_api_server/
 
 ---
 
-## �📝 License
+## 📝 License
 
-MIT License
+MIT License（LICENSEファイルは未同梱）
 
